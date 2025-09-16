@@ -1,0 +1,245 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// Core users and roles
+model User {
+  id              String   @id @default(cuid())
+  email           String   @unique
+  name            String?
+  role            UserRole @default(CUSTOMER)
+  timezone        String   @default("UTC")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  providerProfile ProviderProfile?
+  bookings        Booking[]
+  subscriptions   Subscription[]
+  reviews         Review[]
+}
+
+enum UserRole {
+  CUSTOMER
+  PROVIDER
+  ADMIN
+}
+
+/// Optional organization for multi-provider businesses
+model Organization {
+  id        String            @id @default(cuid())
+  name      String
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+
+  providers ProviderProfile[]
+}
+
+/// Public profile for providers
+model ProviderProfile {
+  id              String        @id @default(cuid())
+  userId          String        @unique
+  organizationId  String?
+  bio             String?
+  location        String?
+  headline        String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  user            User          @relation(fields: [userId], references: [id])
+  organization    Organization? @relation(fields: [organizationId], references: [id])
+  services        Service[]
+  availability    AvailabilityRule[]
+  blackouts       Blackout[]
+  timeSlots       TimeSlot[]
+  bookings        Booking[]
+  reviews         Review[]
+}
+
+/// A bookable service type (e.g., "Yoga 60m")
+model Service {
+  id          String           @id @default(cuid())
+  providerId  String
+  name        String
+  description String?
+  durationMin Int
+  priceCents  Int              @default(0)
+  category    String?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  provider    ProviderProfile  @relation(fields: [providerId], references: [id])
+  bookings    Booking[]
+}
+
+/// Subscription plan defines credits per cycle
+model Plan {
+  id                String   @id @default(cuid())
+  name              String
+  stripeProductId   String?  @unique
+  stripePriceId     String?  @unique
+  creditsPerCycle   Int      @default(0)
+  interval          PlanInterval
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  subscriptions     Subscription[]
+}
+
+enum PlanInterval {
+  MONTH
+  WEEK
+}
+
+model Subscription {
+  id                   String   @id @default(cuid())
+  userId               String
+  planId               String
+  status               SubscriptionStatus @default(ACTIVE)
+  currentPeriodStart   DateTime
+  currentPeriodEnd     DateTime
+  creditsRemaining     Int      @default(0)
+  stripeCustomerId     String?
+  stripeSubscriptionId String?  @unique
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  user                 User     @relation(fields: [userId], references: [id])
+  plan                 Plan     @relation(fields: [planId], references: [id])
+  ledger               CreditLedger[]
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  INCOMPLETE
+}
+
+model CreditLedger {
+  id              String   @id @default(cuid())
+  subscriptionId  String
+  delta           Int
+  reason          String?
+  createdAt       DateTime @default(now())
+
+  subscription    Subscription @relation(fields: [subscriptionId], references: [id])
+}
+
+/// Recurring weekly availability windows (e.g., Mon 9-17)
+model AvailabilityRule {
+  id           String   @id @default(cuid())
+  providerId   String
+  weekday      Int      // 0-6 (Sun-Sat)
+  startMinutes Int      // minutes from midnight
+  endMinutes   Int
+  timezone     String   @default("UTC")
+  createdAt    DateTime @default(now())
+
+  provider     ProviderProfile @relation(fields: [providerId], references: [id])
+}
+
+/// Specific exceptions (vacation, holidays)
+model Blackout {
+  id         String   @id @default(cuid())
+  providerId String
+  start      DateTime
+  end        DateTime
+  reason     String?
+
+  provider   ProviderProfile @relation(fields: [providerId], references: [id])
+}
+
+/// Materialized bookable slots for the next N weeks
+model TimeSlot {
+  id           String   @id @default(cuid())
+  providerId   String
+  start        DateTime
+  end          DateTime
+  isBooked     Boolean  @default(false)
+  createdAt    DateTime @default(now())
+
+  provider     ProviderProfile @relation(fields: [providerId], references: [id])
+  booking      Booking?
+
+  @@index([providerId, start])
+}
+
+model Booking {
+  id            String    @id @default(cuid())
+  customerId    String
+  providerId    String
+  serviceId     String
+  timeSlotId    String    @unique
+  priceCents    Int
+  status        BookingStatus @default(CONFIRMED)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  cancelAt      DateTime?
+
+  customer      User            @relation(fields: [customerId], references: [id])
+  provider      ProviderProfile @relation(fields: [providerId], references: [id])
+  service       Service         @relation(fields: [serviceId], references: [id])
+  timeSlot      TimeSlot        @relation(fields: [timeSlotId], references: [id])
+  payment       Payment?
+  review        Review?
+
+  @@index([customerId])
+  @@index([providerId])
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  CANCELED
+  COMPLETED
+}
+
+model Payment {
+  id                 String   @id @default(cuid())
+  bookingId          String   @unique
+  amountCents        Int
+  currency           String   @default("usd")
+  stripePaymentIntentId String? @unique
+  stripeChargeId        String? @unique
+  refundId              String?
+  status             PaymentStatus @default(SUCCEEDED)
+  createdAt          DateTime @default(now())
+
+  booking            Booking  @relation(fields: [bookingId], references: [id])
+}
+
+enum PaymentStatus {
+  REQUIRES_PAYMENT_METHOD
+  REQUIRES_CONFIRMATION
+  REQUIRES_ACTION
+  PROCESSING
+  SUCCEEDED
+  CANCELED
+  REFUNDED
+}
+
+model Review {
+  id          String   @id @default(cuid())
+  bookingId   String   @unique
+  providerId  String
+  userId      String
+  rating      Int
+  comment     String?
+  createdAt   DateTime @default(now())
+
+  booking     Booking         @relation(fields: [bookingId], references: [id])
+  provider    ProviderProfile @relation(fields: [providerId], references: [id])
+  user        User            @relation(fields: [userId], references: [id])
+}
