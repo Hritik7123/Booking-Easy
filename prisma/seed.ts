@@ -5,9 +5,10 @@ const prisma = new PrismaClient();
 async function main() {
   // Plans
   const monthly = await prisma.plan.upsert({
-    where: { name: "Monthly 4 Sessions" },
+    where: { id: "plan-monthly-4" },
     update: {},
     create: {
+      id: "plan-monthly-4",
       name: "Monthly 4 Sessions",
       creditsPerCycle: 4,
       interval: PlanInterval.MONTH,

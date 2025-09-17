@@ -6,7 +6,6 @@
 
 generator client {
   provider = "prisma-client-js"
-  output   = "../src/generated/prisma"
 }
 
 datasource db {
@@ -194,6 +193,7 @@ model Booking {
   timeSlot      TimeSlot        @relation(fields: [timeSlotId], references: [id])
   payment       Payment?
   review        Review?
+  notifications Notification[]
 
   @@index([customerId])
   @@index([providerId])
@@ -242,4 +242,44 @@ model Review {
   booking     Booking         @relation(fields: [bookingId], references: [id])
   provider    ProviderProfile @relation(fields: [providerId], references: [id])
   user        User            @relation(fields: [userId], references: [id])
+}
+
+/// Outbound notifications (email/SMS) with scheduling
+model Notification {
+  id            String            @id @default(cuid())
+  bookingId     String
+  targetEmail   String
+  type          NotificationType
+  scheduledAt   DateTime
+  sentAt        DateTime?
+  status        NotificationStatus @default(PENDING)
+  createdAt     DateTime           @default(now())
+
+  booking       Booking            @relation(fields: [bookingId], references: [id])
+
+  @@index([scheduledAt, status])
+}
+
+enum NotificationType {
+  REMINDER_24H
+  REMINDER_2H
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+/// Coupons for discounts
+model Coupon {
+  id               String   @id @default(cuid())
+  code             String   @unique
+  percentOff       Int?
+  amountOffCents   Int?
+  maxRedemptions   Int?
+  timesRedeemed    Int      @default(0)
+  redeemBy         DateTime?
+  active           Boolean  @default(true)
+  createdAt        DateTime @default(now())
 }

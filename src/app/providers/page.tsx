@@ -15,6 +15,7 @@ export default async function ProvidersPage() {
             <div className="font-semibold">{p.user?.name ?? p.userId}</div>
             <div className="text-sm text-gray-600">{p.headline}</div>
             <div className="mt-2 text-sm">Services: {p.services.map((s) => s.name).join(", ")}</div>
+            <a href={`/providers/${p.id}`} className="mt-2 inline-block underline">View</a>
           </li>
         ))}
       </ul>
