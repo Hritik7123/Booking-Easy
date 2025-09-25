@@ -47,10 +47,30 @@ export async function POST(req: NextRequest) {
       console.log("Database connection successful");
     } catch (dbError) {
       console.error("Database connection failed:", dbError);
-      return Response.json({ 
-        error: "Database connection failed. Please check your database configuration.", 
-        details: process.env.NODE_ENV === 'development' ? dbError.message : undefined
-      }, { status: 500 });
+      
+      // If it's a table doesn't exist error, try to create tables
+      if (dbError instanceof Error && dbError.message.includes('relation') && dbError.message.includes('does not exist')) {
+        console.log("Tables don't exist, attempting to create them...");
+        try {
+          const { execSync } = require('child_process');
+          execSync('npx prisma db push', { 
+            stdio: 'inherit',
+            env: { ...process.env, DATABASE_URL: process.env.DATABASE_URL }
+          });
+          console.log("Database tables created successfully");
+        } catch (pushError) {
+          console.error("Failed to create tables:", pushError);
+          return Response.json({ 
+            error: "Database tables don't exist. Please run /api/migrate first to create them.", 
+            details: "Visit https://your-app.vercel.app/api/migrate to set up the database"
+          }, { status: 500 });
+        }
+      } else {
+        return Response.json({ 
+          error: "Database connection failed. Please check your database configuration.", 
+          details: process.env.NODE_ENV === 'development' ? dbError.message : undefined
+        }, { status: 500 });
+      }
     }
 
     // Get the current user
