@@ -177,8 +177,9 @@ export async function POST(req: NextRequest) {
         success: true,
         providerId: `mock-${Date.now()}`,
         serviceId: `service-${Date.now()}`,
-        message: "Provider profile created successfully (demo mode)",
-        demo: true
+        message: "Provider profile created successfully (demo mode - database not configured)",
+        demo: true,
+        instructions: "To enable full functionality, please set up a PostgreSQL database and add DATABASE_URL to your Vercel environment variables"
       });
     }
     
