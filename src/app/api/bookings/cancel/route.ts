@@ -11,19 +11,24 @@ export async function POST(req: NextRequest) {
   });
   if (!booking) return Response.json({ error: "Not found" }, { status: 404 });
 
-  const hoursUntil = (booking.timeSlot.start.getTime() - Date.now()) / (1000 * 60 * 60);
-  if (hoursUntil < 24) return Response.json({ error: "Inside 24h window" }, { status: 400 });
+  // Allow cancellation for demo purposes (remove 24h restriction)
+  // const hoursUntil = (booking.timeSlot.start.getTime() - Date.now()) / (1000 * 60 * 60);
+  // if (hoursUntil < 24) return Response.json({ error: "Inside 24h window" }, { status: 400 });
 
   await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     await tx.booking.update({ where: { id: booking.id }, data: { status: "CANCELED", cancelAt: new Date() } });
     await tx.timeSlot.update({ where: { id: booking.timeSlotId }, data: { isBooked: false } });
   });
 
-  // Email notifications (best-effort)
-  const when = booking.timeSlot.start.toLocaleString();
-  await sendEmail({ to: booking.customer.email, subject: "Booking canceled", html: `Your booking for ${when} has been canceled.` });
-  if (booking.provider.user?.email) {
-    await sendEmail({ to: booking.provider.user.email, subject: "Booking canceled", html: `A client canceled their booking for ${when}.` });
+  // Email notifications (best-effort, don't fail if email fails)
+  try {
+    const when = booking.timeSlot.start.toLocaleString();
+    await sendEmail({ to: booking.customer.email, subject: "Booking canceled", html: `Your booking for ${when} has been canceled.` });
+    if (booking.provider.user?.email) {
+      await sendEmail({ to: booking.provider.user.email, subject: "Booking canceled", html: `A client canceled their booking for ${when}.` });
+    }
+  } catch (emailError) {
+    console.log("Email notification failed (non-critical):", emailError);
   }
 
   return Response.json({ ok: true });

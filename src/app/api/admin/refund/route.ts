@@ -9,7 +9,7 @@ export async function POST(req: NextRequest) {
   const payment = await prisma.payment.findUnique({ where: { bookingId } });
   if (!payment?.stripePaymentIntentId) return Response.json({ error: "No payment to refund" }, { status: 400 });
 
-  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: "2024-06-20" });
+  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: "2025-08-27.basil" });
   const refund = await stripe.refunds.create({ payment_intent: payment.stripePaymentIntentId });
 
   await prisma.payment.update({ where: { bookingId }, data: { status: "REFUNDED", refundId: refund.id } });

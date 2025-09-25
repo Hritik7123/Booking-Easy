@@ -8,7 +8,8 @@ export default async function PlansPage() {
     "use server";
     const customerEmail = String(formData.get("email"));
     const planId = String(formData.get("planId"));
-    const res = await fetch("/api/subscriptions/checkout", {
+    const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
+    const res = await fetch(`${baseUrl}/api/subscriptions/checkout`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ customerEmail, planId }),

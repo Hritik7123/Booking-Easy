@@ -4,9 +4,9 @@ import { generateTimeSlotsForProvider } from "@/lib/slots";
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { providerId: string } }
+  { params }: { params: Promise<{ providerId: string }> }
 ) {
-  const { providerId } = params;
+  const { providerId } = await params;
   const body = await req.json().catch(() => ({}));
   const days = typeof body.days === "number" ? body.days : undefined;
   const slotMinutes = typeof body.slotMinutes === "number" ? body.slotMinutes : undefined;
@@ -17,9 +17,9 @@ export async function POST(
 
 export async function GET(
   _req: NextRequest,
-  { params }: { params: { providerId: string } }
+  { params }: { params: Promise<{ providerId: string }> }
 ) {
-  const { providerId } = params;
+  const { providerId } = await params;
   const slots = await prisma.timeSlot.findMany({
     where: { providerId, isBooked: false, start: { gte: new Date() } },
     orderBy: { start: "asc" },
