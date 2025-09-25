@@ -4,10 +4,13 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 export async function POST(req: NextRequest) {
-  const body = await req.json();
-  const { email } = body;
-  
   try {
+    const body = await req.json();
+    const { email } = body;
+    
+    console.log("Become-provider API called with email:", email);
+    console.log("DATABASE_URL exists:", !!process.env.DATABASE_URL);
+    
     const session = await getServerSession(authOptions);
     console.log("Session in become-provider:", session);
     
@@ -37,6 +40,19 @@ export async function POST(req: NextRequest) {
       return Response.json({ error: "All fields are required" }, { status: 400 });
     }
 
+    // Test database connection first
+    try {
+      console.log("Testing database connection...");
+      await prisma.$connect();
+      console.log("Database connection successful");
+    } catch (dbError) {
+      console.error("Database connection failed:", dbError);
+      return Response.json({ 
+        error: "Database connection failed. Please check your database configuration.", 
+        details: process.env.NODE_ENV === 'development' ? dbError.message : undefined
+      }, { status: 500 });
+    }
+
     // Get the current user
     let user;
     try {
@@ -47,7 +63,10 @@ export async function POST(req: NextRequest) {
       console.log("User found:", user);
     } catch (dbError) {
       console.error("Database error finding user:", dbError);
-      return Response.json({ error: "Database connection error. Please try again." }, { status: 500 });
+      return Response.json({ 
+        error: "Database query failed. Please try again.", 
+        details: process.env.NODE_ENV === 'development' ? dbError.message : undefined
+      }, { status: 500 });
     }
 
     if (!user) {
@@ -143,6 +162,14 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     console.error("Error creating provider profile:", error);
     
+    // Check if it's a database connection error
+    if (error instanceof Error && error.message.includes('connect')) {
+      return Response.json({
+        error: "Database connection failed. Please check your Vercel environment variables.",
+        details: "Make sure DATABASE_URL is set correctly in your Vercel project settings."
+      }, { status: 500 });
+    }
+    
     // For demo purposes, if database fails, return a mock success
     if (body.email) {
       console.log("Database error, but returning mock success for demo");
@@ -156,7 +183,10 @@ export async function POST(req: NextRequest) {
     }
     
     return Response.json(
-      { error: "Failed to create provider profile" },
+      { 
+        error: "Failed to create provider profile",
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      },
       { status: 500 }
     );
   }
