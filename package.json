@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "prisma generate && prisma db push && next build",
     "start": "next start",
     "lint": "eslint",
     "prisma:generate": "prisma generate",
@@ -15,7 +15,8 @@
     "db:restore": "node scripts/restore-db.js",
     "db:status": "node scripts/db-status.js",
     "db:reset": "prisma migrate reset --force && npm run db:seed",
-    "db:setup": "prisma generate && prisma db push && npm run db:seed"
+    "db:setup": "prisma generate && prisma db push && npm run db:seed",
+    "postinstall": "prisma generate"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.10.0",
