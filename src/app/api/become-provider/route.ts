@@ -40,9 +40,11 @@ export async function POST(req: NextRequest) {
     // Get the current user
     let user;
     try {
+      console.log("Attempting to find user with email:", userEmail);
       user = await prisma.user.findUnique({
         where: { email: userEmail },
       });
+      console.log("User found:", user);
     } catch (dbError) {
       console.error("Database error finding user:", dbError);
       return Response.json({ error: "Database connection error. Please try again." }, { status: 500 });
