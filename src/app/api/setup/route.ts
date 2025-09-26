@@ -1,38 +1,38 @@
-import { NextRequest } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { NextRequest, NextResponse } from 'next/server';
+import { execSync } from 'child_process';
 
 export async function GET(req: NextRequest) {
   try {
-    // Test database connection
-    await prisma.$connect();
+    console.log('Setting up database...');
     
-    // Try to create a user to test if tables exist
-    const testUser = await prisma.user.create({
-      data: {
-        email: 'test@example.com',
-        role: 'CUSTOMER'
-      }
+    // Check if DATABASE_URL is set
+    if (!process.env.DATABASE_URL) {
+      return NextResponse.json({
+        error: 'DATABASE_URL not found in environment variables',
+        suggestion: 'Please add DATABASE_URL to your Vercel environment variables'
+      }, { status: 500 });
+    }
+
+    console.log('DATABASE_URL found, running prisma db push...');
+    
+    // Run prisma db push to create tables
+    execSync('npx prisma db push', {
+      stdio: 'inherit',
+      env: { ...process.env }
     });
-    
-    // Delete the test user
-    await prisma.user.delete({
-      where: { id: testUser.id }
-    });
-    
-    return Response.json({
+
+    return NextResponse.json({
       success: true,
-      message: "Database is working! You can now create provider profiles.",
-      databaseConnected: true
+      message: 'Database tables created successfully!',
+      timestamp: new Date().toISOString()
     });
-    
-  } catch (error) {
-    return Response.json({
-      success: false,
-      error: "Database setup failed",
-      message: "Please check your DATABASE_URL in Vercel environment variables",
-      details: error instanceof Error ? error.message : "Unknown error"
+
+  } catch (error: any) {
+    console.error('Database setup failed:', error);
+    return NextResponse.json({
+      error: 'Failed to setup database',
+      details: error.message,
+      suggestion: 'Check your DATABASE_URL in Vercel environment variables'
     }, { status: 500 });
-  } finally {
-    await prisma.$disconnect();
   }
 }
