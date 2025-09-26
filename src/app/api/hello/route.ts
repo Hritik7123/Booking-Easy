@@ -1,16 +1,9 @@
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from 'next/server';
 
-export async function GET(request: NextRequest) {
-  return Response.json({ 
-    message: "Hello from API!",
+export async function GET(req: NextRequest) {
+  return NextResponse.json({
+    message: 'Hello! API is working!',
     timestamp: new Date().toISOString(),
-    status: "working"
-  });
-}
-
-export async function POST(request: NextRequest) {
-  return Response.json({ 
-    message: "POST request received",
-    timestamp: new Date().toISOString()
+    status: 'SUCCESS'
   });
 }
