@@ -45,13 +45,34 @@ export async function POST(req: NextRequest) {
       console.log("Testing database connection...");
       await prisma.$connect();
       console.log("Database connection successful");
-    } catch (dbError) {
+    } catch (dbError: any) {
       console.error("Database connection failed:", dbError);
-      return Response.json({ 
-        error: "Database connection failed. Please check your Vercel environment variables.", 
-        details: "Make sure DATABASE_URL is set correctly in your Vercel project settings.",
-        suggestion: "Visit /api/init-db to initialize the database"
-      }, { status: 500 });
+      
+      // If it's a "relation does not exist" error, try to create tables
+      if (dbError.message && dbError.message.includes('relation') && dbError.message.includes('does not exist')) {
+        console.log("Tables don't exist, attempting to create them...");
+        try {
+          const { execSync } = require('child_process');
+          execSync('npx prisma db push', {
+            stdio: 'inherit',
+            env: { ...process.env }
+          });
+          console.log("Database tables created successfully");
+        } catch (pushError: any) {
+          console.error("Failed to create tables:", pushError);
+          return Response.json({
+            error: "Database tables don't exist. Please initialize the database first.",
+            details: "Visit /api/init-database to set up the database",
+            suggestion: "Go to: https://your-app.vercel.app/api/init-database"
+          }, { status: 500 });
+        }
+      } else {
+        return Response.json({ 
+          error: "Database connection failed. Please check your Vercel environment variables.", 
+          details: "Make sure DATABASE_URL is set correctly in your Vercel project settings.",
+          suggestion: "Visit /api/init-database to initialize the database"
+        }, { status: 500 });
+      }
     }
 
     // Get the current user
