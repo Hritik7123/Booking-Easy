@@ -90,7 +90,35 @@ export default function BecomeProviderPage() {
       } else {
         const error = await response.json();
         console.error("API Error:", error);
-        alert(`Error: ${error.error || error.message || "Failed to create provider profile"}`);
+        
+        // Handle database configuration errors with helpful instructions
+        if (error.error === "Database not configured") {
+          const setupInstructions = `
+Database not configured! Please follow these steps:
+
+1. Go to your Vercel Dashboard
+2. Navigate to your project settings  
+3. Go to Environment Variables
+4. Add DATABASE_URL with your PostgreSQL connection string
+5. Redeploy your application
+6. Visit /api/init-database to create tables
+
+Quick setup options:
+- Vercel Postgres (free tier)
+- Railway (free PostgreSQL) 
+- Neon (free tier)
+- Supabase (free PostgreSQL)
+
+Visit: ${window.location.origin}/api/init-database
+          `;
+          alert(setupInstructions);
+        } else if (error.instructions) {
+          // Show structured instructions
+          const instructions = Object.values(error.instructions).join('\n');
+          alert(`Setup Required:\n\n${instructions}\n\nQuick setup: ${error.quickSetup}`);
+        } else {
+          alert(`Error: ${error.error || error.message || "Failed to create provider profile"}`);
+        }
       }
     } catch (error) {
       alert("Error creating provider profile. Please try again.");

@@ -40,6 +40,30 @@ export async function POST(req: NextRequest) {
       return Response.json({ error: "All fields are required" }, { status: 400 });
     }
 
+    // Check if DATABASE_URL is configured
+    if (!process.env.DATABASE_URL) {
+      console.log("DATABASE_URL not configured, returning setup instructions");
+      return Response.json({
+        error: "Database not configured",
+        message: "Please set up a database connection first",
+        instructions: {
+          step1: "Go to your Vercel Dashboard",
+          step2: "Navigate to your project settings",
+          step3: "Go to Environment Variables",
+          step4: "Add DATABASE_URL with your PostgreSQL connection string",
+          step5: "Redeploy your application",
+          step6: "Visit /api/init-database to create tables"
+        },
+        quickSetup: "Visit: https://your-app.vercel.app/api/init-database",
+        alternatives: [
+          "Use Vercel Postgres (free tier available)",
+          "Use Railway (free PostgreSQL)",
+          "Use Neon (free tier)",
+          "Use Supabase (free PostgreSQL)"
+        ]
+      }, { status: 500 });
+    }
+
     // Test database connection first
     try {
       console.log("Testing database connection...");
@@ -47,15 +71,6 @@ export async function POST(req: NextRequest) {
       console.log("Database connection successful");
     } catch (dbError: any) {
       console.error("Database connection failed:", dbError);
-      
-      // Check if DATABASE_URL is missing
-      if (!process.env.DATABASE_URL) {
-        return Response.json({
-          error: "DATABASE_URL not found in environment variables",
-          details: "Please add DATABASE_URL to your Vercel environment variables",
-          suggestion: "Go to Vercel Settings → Environment Variables → Add DATABASE_URL"
-        }, { status: 500 });
-      }
       
       // If it's a "relation does not exist" error, try to create tables
       if (dbError.message && dbError.message.includes('relation') && dbError.message.includes('does not exist')) {
@@ -79,7 +94,7 @@ export async function POST(req: NextRequest) {
         return Response.json({ 
           error: "Database connection failed. Please check your Vercel environment variables.", 
           details: "Make sure DATABASE_URL is set correctly in your Vercel project settings.",
-          suggestion: "Visit /api/db-test to test your database connection"
+          suggestion: "Visit /api/init-database to initialize the database"
         }, { status: 500 });
       }
     }

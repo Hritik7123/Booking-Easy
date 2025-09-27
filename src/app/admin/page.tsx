@@ -1,16 +1,59 @@
-import { prisma } from "@/lib/prisma";
+"use client";
+import { useState, useEffect } from "react";
 
-export default async function AdminPage() {
-  const [bookings, notifications, users, coupons] = await Promise.all([
-    prisma.booking.findMany({
-      orderBy: { createdAt: "desc" },
-      take: 20,
-      include: { customer: true, provider: { include: { user: true } }, service: true, timeSlot: true },
-    }),
-    prisma.notification.findMany({ orderBy: { scheduledAt: "desc" }, take: 40 }),
-    prisma.user.findMany({ orderBy: { createdAt: "desc" }, take: 20 }),
-    prisma.coupon.findMany({ orderBy: { createdAt: "desc" }, take: 50 }),
-  ]);
+export default function AdminPage() {
+  const [bookings, setBookings] = useState<any[]>([]);
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [users, setUsers] = useState<any[]>([]);
+  const [coupons, setCoupons] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchAdminData() {
+      try {
+        const [bookingsRes, notificationsRes, usersRes, couponsRes] = await Promise.all([
+          fetch('/api/admin/bookings'),
+          fetch('/api/admin/notifications'),
+          fetch('/api/admin/users'),
+          fetch('/api/admin/coupons')
+        ]);
+
+        if (bookingsRes.ok) {
+          const bookingsData = await bookingsRes.json();
+          setBookings(bookingsData);
+        }
+
+        if (notificationsRes.ok) {
+          const notificationsData = await notificationsRes.json();
+          setNotifications(notificationsData);
+        }
+
+        if (usersRes.ok) {
+          const usersData = await usersRes.json();
+          setUsers(usersData);
+        }
+
+        if (couponsRes.ok) {
+          const couponsData = await couponsRes.json();
+          setCoupons(couponsData);
+        }
+      } catch (error) {
+        console.error('Error fetching admin data:', error);
+      } finally {
+        setLoading(false);
+      }
+    }
+    
+    fetchAdminData();
+  }, []);
+
+  if (loading) {
+    return (
+      <main className="mx-auto max-w-5xl p-8 grid gap-8">
+        <div>Loading admin data...</div>
+      </main>
+    );
+  }
 
   return (
     <main className="mx-auto max-w-5xl p-8 grid gap-8">
@@ -137,24 +180,28 @@ export default async function AdminPage() {
 }
 
 function RefundButton({ bookingId }: { bookingId: string }) {
-  async function refund() {
-    "use server";
-    await fetch("/api/admin/refund", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ bookingId }),
-    });
+  async function handleRefund() {
+    try {
+      await fetch("/api/admin/refund", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ bookingId }),
+      });
+      // Refresh the page to show updated data
+      window.location.reload();
+    } catch (error) {
+      console.error('Error processing refund:', error);
+    }
   }
   return (
-    <form action={refund}>
-      <button type="submit" className="underline">Refund</button>
-    </form>
+    <button onClick={handleRefund} className="underline">Refund</button>
   );
 }
 
 function ManualBookingForm() {
-  async function create(formData: FormData) {
-    "use server";
+  async function handleCreate(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
     const payload = {
       customerEmail: String(formData.get("email")),
       providerId: String(formData.get("providerId")),
@@ -163,14 +210,20 @@ function ManualBookingForm() {
       end: String(formData.get("end")),
       priceCents: formData.get("priceCents") ? Number(formData.get("priceCents")) : undefined,
     };
-    await fetch("/api/admin/bookings", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(payload),
-    });
+    try {
+      await fetch("/api/admin/bookings", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      // Refresh the page to show updated data
+      window.location.reload();
+    } catch (error) {
+      console.error('Error creating booking:', error);
+    }
   }
   return (
-    <form action={create} className="mt-2 flex flex-wrap items-end gap-2">
+    <form onSubmit={handleCreate} className="mt-2 flex flex-wrap items-end gap-2">
       <input name="email" placeholder="customer@email" required className="border rounded px-2 py-1" />
       <input name="providerId" placeholder="providerId" required className="border rounded px-2 py-1" />
       <input name="serviceId" placeholder="serviceId" required className="border rounded px-2 py-1" />
@@ -183,8 +236,9 @@ function ManualBookingForm() {
 }
 
 function CouponForm() {
-  async function create(formData: FormData) {
-    "use server";
+  async function handleCreate(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
     const payload = {
       code: String(formData.get("code")),
       percentOff: formData.get("percentOff") ? Number(formData.get("percentOff")) : undefined,
@@ -193,14 +247,20 @@ function CouponForm() {
       redeemBy: formData.get("redeemBy") ? String(formData.get("redeemBy")) : undefined,
       active: formData.get("active") === "on",
     };
-    await fetch("/api/admin/coupons", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(payload),
-    });
+    try {
+      await fetch("/api/admin/coupons", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      // Refresh the page to show updated data
+      window.location.reload();
+    } catch (error) {
+      console.error('Error creating coupon:', error);
+    }
   }
   return (
-    <form action={create} className="mt-2 flex flex-wrap items-end gap-2">
+    <form onSubmit={handleCreate} className="mt-2 flex flex-wrap items-end gap-2">
       <input name="code" placeholder="CODE" required className="border rounded px-2 py-1" />
       <input name="percentOff" type="number" min="0" max="100" placeholder="%" className="border rounded px-2 py-1 w-24" />
       <input name="amountOffCents" type="number" min="0" placeholder="cents" className="border rounded px-2 py-1 w-28" />
@@ -212,17 +272,24 @@ function CouponForm() {
   );
 }
 function RoleForm({ email, currentRole }: { email: string; currentRole: string }) {
-  async function setRole(formData: FormData) {
-    "use server";
+  async function handleSetRole(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
     const role = String(formData.get("role"));
-    await fetch("/api/admin/role", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ email, role }),
-    });
+    try {
+      await fetch("/api/admin/role", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ email, role }),
+      });
+      // Refresh the page to show updated data
+      window.location.reload();
+    } catch (error) {
+      console.error('Error updating role:', error);
+    }
   }
   return (
-    <form action={setRole} className="flex items-center gap-2">
+    <form onSubmit={handleSetRole} className="flex items-center gap-2">
       <select name="role" defaultValue={currentRole} className="border rounded px-2 py-1">
         <option value="CUSTOMER">CUSTOMER</option>
         <option value="PROVIDER">PROVIDER</option>

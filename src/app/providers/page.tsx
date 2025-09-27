@@ -1,16 +1,41 @@
-import { prisma } from "@/lib/prisma";
+"use client";
+import { useState, useEffect } from "react";
 
-export default async function ProvidersPage() {
-  let providers: any[] = [];
-  try {
-    providers = await prisma.providerProfile.findMany({
-      include: { user: true, services: true },
-      take: 20,
-    });
-  } catch (error) {
-    console.error("Error fetching providers:", error);
-    // Show empty state if database fails
-    providers = [];
+export default function ProvidersPage() {
+  const [providers, setProviders] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchProviders() {
+      try {
+        const response = await fetch('/api/providers');
+        if (response.ok) {
+          const data = await response.json();
+          setProviders(data);
+        } else {
+          console.error('Failed to fetch providers');
+        }
+      } catch (error) {
+        console.error('Error fetching providers:', error);
+      } finally {
+        setLoading(false);
+      }
+    }
+    
+    fetchProviders();
+  }, []);
+
+  if (loading) {
+    return (
+      <main className="min-h-screen bg-gray-50 py-12">
+        <div className="mx-auto max-w-6xl px-4">
+          <div className="text-center mb-12">
+            <h1 className="text-4xl font-bold text-gray-900 mb-4">Our Providers</h1>
+            <p className="text-xl text-gray-600">Loading providers...</p>
+          </div>
+        </div>
+      </main>
+    );
   }
 
   return (
